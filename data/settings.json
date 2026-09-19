@@ -1,0 +1,10 @@
+{
+  "partyDate": "2026-09-25T17:00:00",
+  "birthdayGirl": "Lina",
+  "age": 10,
+  "locationName": "كمبوند ستون ريزيدنس (Stone Residence)",
+  "address": "الوحدة 273، الدور الأرضي",
+  "mapLat": 30.0131,
+  "mapLng": 31.4289,
+  "googleSheetWebhookUrl": "https://script.google.com/macros/s/AKfycbw2yC1kkf5sJidoBZBo-FYHgW_jaKLO1QmJ7Q-7m3OYmCwhSpFRrsApFr2OZEzDEZzL/exec"
+}

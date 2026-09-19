@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="1000" height="600">
+  <defs>
+    <linearGradient id="leftPillGrad" x1="0" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#f3e3f8" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#ded0f0" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#bfb5e5" stop-opacity="0.7" />
+    </linearGradient>
+    <linearGradient id="rightPillGrad" x1="0" y1="0" x2="-0.5" y2="1">
+      <stop offset="0%" stop-color="#f3e3f8" stop-opacity="0.9" />
+      <stop offset="50%" stop-color="#ded0f0" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#bfb5e5" stop-opacity="0.7" />
+    </linearGradient>
+    <linearGradient id="backOvalGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#d88fb7" stop-opacity="0.75" />
+      <stop offset="100%" stop-color="#b899d4" stop-opacity="0.55" />
+    </linearGradient>
+    <filter id="blurSoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" />
+    </filter>
+  </defs>
+
+  <!-- Left decorative shape -->
+  <g transform="translate(220, 320)">
+    <!-- Back ellipse -->
+    <ellipse cx="45" cy="-50" rx="65" ry="105" transform="rotate(18)" fill="url(#backOvalGrad)" filter="url(#blurSoft)" />
+    <!-- Front pill ribbon -->
+    <rect x="-75" y="-95" width="135" height="200" rx="60" transform="rotate(24)" fill="url(#leftPillGrad)" filter="url(#blurSoft)" />
+  </g>
+
+  <!-- Right decorative shape -->
+  <g transform="translate(780, 320)">
+    <!-- Back ellipse -->
+    <ellipse cx="-45" cy="-50" rx="65" ry="105" transform="rotate(-18)" fill="url(#backOvalGrad)" filter="url(#blurSoft)" />
+    <!-- Front pill ribbon -->
+    <rect x="-60" y="-95" width="135" height="200" rx="60" transform="rotate(-24)" fill="url(#rightPillGrad)" filter="url(#blurSoft)" />
+  </g>
+</svg>

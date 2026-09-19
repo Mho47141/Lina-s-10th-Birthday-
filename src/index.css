@@ -1,0 +1,104 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: #1e293b;
+    background-color: #03203c;
+    overflow-x: hidden;
+  }
+
+  [dir="rtl"] {
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+  }
+}
+
+.font-script {
+  font-family: 'Great Vibes', 'Dancing Script', cursive;
+}
+
+.font-greatvibes {
+  font-family: 'Great Vibes', cursive;
+  overflow: visible;
+  line-height: 1.35;
+}
+
+.font-cinzel {
+  font-family: 'Cinzel Decorative', serif;
+}
+
+.font-alex {
+  font-family: 'Alex Brush', cursive;
+}
+
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-ruqaa {
+  font-family: 'Aref Ruqaa', cursive;
+}
+
+.font-display {
+  font-family: 'Dancing Script', cursive;
+}
+
+.font-hand {
+  font-family: 'Caveat', cursive;
+}
+
+@keyframes rise {
+  0% {
+    transform: translateY(0) translateX(0) scale(0.8);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-50vh) translateX(14px) scale(1);
+  }
+  75% {
+    transform: translateY(-75vh) translateX(-10px) scale(1.05);
+  }
+  100% {
+    transform: translateY(-115vh) translateX(6px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.animate-rise {
+  animation-name: rise;
+  animation-timing-function: ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(168, 85, 247, 0.5), 0 0 30px rgba(56, 189, 248, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(168, 85, 247, 0.8), 0 0 45px rgba(56, 189, 248, 0.7);
+    transform: scale(1.02);
+  }
+}
+
+.animate-glow {
+  animation: pulseGlow 2.8s infinite ease-in-out;
+}
+
+/* Custom scrollbar for guestbook */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(3, 32, 60, 0.4);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.4);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.7);
+}

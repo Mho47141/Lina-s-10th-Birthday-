@@ -44,7 +44,6 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
   const [author, setAuthor] = useState('');
   const [message, setMessage] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
-  const [submitting, setSubmitting] = useState(false);
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
   const [successToast, setSuccessToast] = useState(false);
 
@@ -79,46 +78,49 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
     e.preventDefault();
     if (!author.trim() || !message.trim()) return;
 
-    setSubmitting(true);
+    const currentAuthor = author.trim();
+    const currentMessage = message.trim();
+    const currentAvatar = selectedAvatar;
+
+    // 1. Instant optimistic UI feedback (<20ms)
+    const optimisticWish: WishItem = {
+      id: `wish-${Date.now()}`,
+      author: currentAuthor,
+      message: currentMessage,
+      avatar: currentAvatar,
+      createdAt: new Date().toISOString(),
+      likes: 0,
+    };
+    setWishes((prev) => [optimisticWish, ...prev]);
+
+    // 2. Clear inputs & display success indicator immediately
+    setAuthor('');
+    setMessage('');
+    setSuccessToast(true);
+    setTimeout(() => setSuccessToast(false), 4000);
+
+    // 3. Instant celebrations: glitter, confetti, sound chime
+    triggerMagicalGlitter(0.6);
+    soundFX.playShellOpenChime();
     try {
-      await dataService.submitWish({
-        author: author.trim(),
-        message: message.trim(),
-        avatar: selectedAvatar,
-      });
-
-      // Refresh list directly from data service
-      const updated = await dataService.getWishes();
-      setWishes(updated);
-    } catch (err) {
-      console.error('Error submitting wish:', err);
-      // Fallback
-      const newWish: WishItem = {
-        id: `wish-${Date.now()}`,
-        author: author.trim(),
-        message: message.trim(),
-        avatar: selectedAvatar,
-        createdAt: new Date().toISOString(),
-        likes: 0,
-      };
-      setWishes((prev) => [newWish, ...prev]);
-    } finally {
-      setAuthor('');
-      setMessage('');
-      setSuccessToast(true);
-      setTimeout(() => setSuccessToast(false), 4000);
-      setSubmitting(false);
-
-      triggerMagicalGlitter(0.6);
       confetti({
         particleCount: 50,
         spread: 70,
         origin: { y: 0.6 },
         colors: ['#38bdf8', '#f472b6', '#fbbf24', '#a855f7'],
       });
-      soundFX.playBubblePop();
-      if (onWishAdded) onWishAdded();
-    }
+    } catch (_) {}
+
+    if (onWishAdded) onWishAdded();
+
+    // 4. Background dispatch to Google Sheet & server
+    dataService.submitWish({
+      author: currentAuthor,
+      message: currentMessage,
+      avatar: currentAvatar,
+    }).catch((err) => {
+      console.error('Background wish sync error:', err);
+    });
   };
 
   const handleLike = async (wishId: string) => {
@@ -232,11 +234,11 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
               <button
                 id="btn-submit-wish"
                 type="submit"
-                disabled={submitting || !author.trim() || !message.trim()}
+                disabled={!author.trim() || !message.trim()}
                 className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-cyan-500 hover:from-pink-400 hover:to-cyan-400 text-white font-bold text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>{submitting ? t.wishesSending : t.sendWish}</span>
+                <span>{t.sendWish}</span>
               </button>
             </div>
           </form>

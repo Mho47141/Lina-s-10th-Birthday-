@@ -26,7 +26,6 @@ export const RSVPScreen: React.FC<RSVPScreenProps> = ({
   const [guestsCount, setGuestsCount] = useState(1);
   const [phone, setPhone] = useState('');
   const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [syncedToSheet, setSyncedToSheet] = useState(false);
 
@@ -40,7 +39,17 @@ export const RSVPScreen: React.FC<RSVPScreenProps> = ({
     e.preventDefault();
     if (!name.trim() || !status) return;
 
-    setSubmitting(true);
+    // Instant celebration & feedback (<50ms)
+    setIsSuccess(true);
+    setSyncedToSheet(true);
+    triggerMagicalGlitter(0.6);
+    if (status === 'yes' || status === 'maybe') {
+      soundFX.playShellOpenChime();
+    } else {
+      soundFX.playBubblePop();
+    }
+    if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);
+
     try {
       await dataService.submitRSVP({
         name: name.trim(),
@@ -49,26 +58,8 @@ export const RSVPScreen: React.FC<RSVPScreenProps> = ({
         phone: phone.trim() || undefined,
         message: message.trim() || undefined,
       });
-
-      setIsSuccess(true);
-      setSyncedToSheet(true);
-      triggerMagicalGlitter(0.5);
-      if (status === 'yes' || status === 'maybe') {
-        soundFX.playShellOpenChime();
-      } else {
-        soundFX.playBubblePop();
-      }
-      if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);
     } catch (err) {
-      console.error('Error submitting RSVP:', err);
-      // Still show confirmation and glitter for smooth guest experience
-      setIsSuccess(true);
-      setSyncedToSheet(true);
-      triggerMagicalGlitter(0.5);
-      soundFX.playShellOpenChime();
-      if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);
-    } finally {
-      setSubmitting(false);
+      console.error('Background RSVP submission:', err);
     }
   };
 
@@ -290,17 +281,11 @@ export const RSVPScreen: React.FC<RSVPScreenProps> = ({
                       <button
                         id="btn-submit-rsvp"
                         type="submit"
-                        disabled={submitting || !name.trim()}
+                        disabled={!name.trim()}
                         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-600 hover:from-cyan-300 hover:to-indigo-500 text-slate-950 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                       >
-                        {submitting ? (
-                          <span>{t.rsvpSubmitting}</span>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" />
-                            <span>{t.confirmRSVP}</span>
-                          </>
-                        )}
+                        <Send className="w-3.5 h-3.5" />
+                        <span>{t.confirmRSVP}</span>
                       </button>
                     </div>
                   </motion.form>

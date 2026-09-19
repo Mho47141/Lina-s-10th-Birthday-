@@ -54,29 +54,35 @@ function saveLocalRSVP(rsvp: RSVPItem) {
   }
 }
 
-// Direct Webhook sender to Google Apps Script
+// Direct Webhook sender to Google Apps Script (fast & non-blocking)
 async function sendToGoogleSheetWebhook(payload: Record<string, any>): Promise<boolean> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+
   try {
-    // We send with text/plain to avoid CORS OPTIONS preflight issues in browsers
-    const res = await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
+    // Mode no-cors avoids browser redirect preflight delays and dispatches directly
+    await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(payload),
-      redirect: 'follow',
+      signal: controller.signal,
     });
-    return res.ok;
+    clearTimeout(timeoutId);
+    return true;
   } catch (err) {
-    console.warn('Direct fetch attempt error, trying with no-cors fallback:', err);
+    clearTimeout(timeoutId);
+    console.warn('Initial direct dispatch warning, retrying with standard post:', err);
     try {
       await fetch(GOOGLE_SHEET_WEBHOOK_URL, {
         method: 'POST',
-        mode: 'no-cors',
         headers: {
           'Content-Type': 'text/plain;charset=utf-8',
         },
         body: JSON.stringify(payload),
+        redirect: 'follow',
       });
       return true;
     } catch (innerErr) {
@@ -179,8 +185,8 @@ export const dataService = {
       message: data.message || '',
     };
 
-    // Send directly to Google Sheet Webhook
-    const directPromise = sendToGoogleSheetWebhook(sheetPayload);
+    // Send directly to Google Sheet Webhook in background without blocking UI
+    void sendToGoogleSheetWebhook(sheetPayload);
 
     // Try local /api/rsvp if backend server is available (e.g. in dev)
     try {
@@ -192,8 +198,6 @@ export const dataService = {
     } catch {
       // Ignore in static mode
     }
-
-    await directPromise;
 
     return {
       success: true,
@@ -277,10 +281,10 @@ export const dataService = {
       avatar: data.avatar || '🧜‍♀️',
     };
 
-    // 3. Send directly to Google Sheet (works everywhere including GitHub Pages)
-    const directPromise = sendToGoogleSheetWebhook(sheetPayload);
+    // Send directly to Google Sheet Webhook in background without blocking UI
+    void sendToGoogleSheetWebhook(sheetPayload);
 
-    // 4. Try local /api/wishes if backend server is available
+    // Try local /api/wishes if backend server is available
     try {
       fetch('/api/wishes', {
         method: 'POST',
@@ -290,8 +294,6 @@ export const dataService = {
     } catch {
       // Ignore if /api route does not exist (GitHub Pages)
     }
-
-    await directPromise;
 
     return {
       success: true,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Language, RSVPStats, AppSettings } from '../types';
 import { translations, sampleAppsScriptCode } from '../translations';
+import { GOOGLE_SHEET_WEBHOOK_URL } from '../services/dataService';
 import {
   X,
   Sheet,
@@ -48,9 +49,23 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
       .then((res) => res.json())
       .then((data) => {
         setSettings(data);
-        setWebhookUrl(data.googleSheetWebhookUrl || '');
+        setWebhookUrl(data.googleSheetWebhookUrl || GOOGLE_SHEET_WEBHOOK_URL);
       })
-      .catch((e) => console.error(e));
+      .catch(() => {
+        // Fallback for static hosting (GitHub Pages)
+        setWebhookUrl(GOOGLE_SHEET_WEBHOOK_URL);
+        setSettings({
+          partyDate: '2026-09-25T17:00:00',
+          birthdayGirl: 'Lina',
+          age: 10,
+          locationName: 'كمبوند ستون ريزيدنس (Stone Residence)',
+          address: 'الوحدة 273، الدور الأرضي',
+          mapLat: 30.0131,
+          mapLng: 31.4289,
+          googleSheetWebhookUrl: GOOGLE_SHEET_WEBHOOK_URL,
+          isGoogleSheetConfigured: true,
+        });
+      });
 
     // Fetch RSVP stats
     fetch('/api/rsvps')
@@ -58,7 +73,32 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
       .then((data) => {
         if (data.stats) setStats(data.stats);
       })
-      .catch((e) => console.error(e));
+      .catch(() => {
+        // Fallback: fetch directly from Google Sheet on GitHub Pages
+        fetch(`${GOOGLE_SHEET_WEBHOOK_URL}?action=rsvps`, { redirect: 'follow' })
+          .then((res) => res.json())
+          .then((data) => {
+            if (Array.isArray(data.rsvps)) {
+              let attending = 0;
+              let maybe = 0;
+              let declined = 0;
+              for (const r of data.rsvps) {
+                const s = String(r.status || '').toLowerCase();
+                const count = Number(r.guestsCount) || 1;
+                if (s.includes('اعتذر') || s.includes('no')) declined++;
+                else if (s.includes('ربما') || s.includes('maybe')) maybe += count;
+                else attending += count;
+              }
+              setStats({
+                totalResponses: data.rsvps.length,
+                attendingGuests: attending,
+                maybeGuests: maybe,
+                declinedResponses: declined,
+              });
+            }
+          })
+          .catch((e) => console.warn('Could not load sheet stats:', e));
+      });
   }, [isOpen]);
 
   if (!isOpen) return null;

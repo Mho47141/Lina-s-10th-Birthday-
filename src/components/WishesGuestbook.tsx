@@ -6,6 +6,7 @@ import { MessageCircle, Heart, Send, Sparkles, Check } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundFX } from '../utils/audio';
 import { triggerMagicalGlitter } from '../utils/glitter';
+import { dataService } from '../services/dataService';
 
 interface WishesGuestbookProps {
   lang: Language;
@@ -49,13 +50,10 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
 
   const fetchWishes = async () => {
     try {
-      const res = await fetch('/api/wishes');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.wishes && Array.isArray(data.wishes)) {
-          setWishes(data.wishes);
-          return;
-        }
+      const items = await dataService.getWishes();
+      if (items && items.length > 0) {
+        setWishes(items);
+        return;
       }
     } catch (_) {}
 
@@ -79,38 +77,28 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
     if (!author.trim() || !message.trim()) return;
 
     setSubmitting(true);
-    const newWish: WishItem = {
-      id: `wish-${Date.now()}`,
-      author: author.trim(),
-      message: message.trim(),
-      avatar: selectedAvatar,
-      createdAt: new Date().toISOString(),
-      likes: 0,
-    };
-
     try {
-      const res = await fetch('/api/wishes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          author: author.trim(),
-          message: message.trim(),
-          avatar: selectedAvatar,
-        }),
+      await dataService.submitWish({
+        author: author.trim(),
+        message: message.trim(),
+        avatar: selectedAvatar,
       });
 
-      if (res.ok) {
-        fetchWishes();
-      } else {
-        throw new Error('API failed');
-      }
-    } catch (err) {
-      // Local fallback
-      const updated = [newWish, ...wishes];
+      // Refresh list directly from data service
+      const updated = await dataService.getWishes();
       setWishes(updated);
-      try {
-        localStorage.setItem('lina_guestbook_wishes', JSON.stringify(updated));
-      } catch (_) {}
+    } catch (err) {
+      console.error('Error submitting wish:', err);
+      // Fallback
+      const newWish: WishItem = {
+        id: `wish-${Date.now()}`,
+        author: author.trim(),
+        message: message.trim(),
+        avatar: selectedAvatar,
+        createdAt: new Date().toISOString(),
+        likes: 0,
+      };
+      setWishes((prev) => [newWish, ...prev]);
     } finally {
       setAuthor('');
       setMessage('');

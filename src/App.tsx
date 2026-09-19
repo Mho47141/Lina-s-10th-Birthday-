@@ -145,7 +145,7 @@ export default function App() {
       />
 
       {/* 5. Main Single Slide Canvas (No scroll - Animated transitions with magic blur & glitter) */}
-      <main className="w-full max-w-md sm:max-w-lg h-full flex-1 relative z-10 flex flex-col items-center justify-center pt-14 sm:pt-16 pb-16 px-2">
+      <main className="w-full max-w-md sm:max-w-lg h-full flex-1 relative z-10 flex flex-col items-center justify-center pt-12 sm:pt-14 pb-14 sm:pb-16 px-2 overflow-visible">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSection}
@@ -153,7 +153,7 @@ export default function App() {
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)', y: 0 }}
             exit={{ opacity: 0, scale: 1.04, filter: 'blur(10px)', y: -15 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full h-full flex items-center justify-center overflow-hidden"
+            className="w-full h-full flex items-center justify-center overflow-visible"
           >
             {currentSection === 'cover' && (
               <CoverShellScreen lang={lang} onNext={handleNext} />

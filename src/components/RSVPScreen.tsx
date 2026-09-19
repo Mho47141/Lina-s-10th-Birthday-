@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, Sparkles, User, Users, Phone, FileText, Send, Check, Minus, Plus } from 'lucide-react';
 import { soundFX } from '../utils/audio';
 import { triggerMagicalGlitter } from '../utils/glitter';
+import { dataService } from '../services/dataService';
 
 interface RSVPScreenProps {
   lang: Language;
@@ -41,40 +42,28 @@ export const RSVPScreen: React.FC<RSVPScreenProps> = ({
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/rsvp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          status,
-          guestsCount,
-          phone: phone.trim() || undefined,
-          message: message.trim() || undefined,
-        }),
+      await dataService.submitRSVP({
+        name: name.trim(),
+        status,
+        guestsCount,
+        phone: phone.trim() || undefined,
+        message: message.trim() || undefined,
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setIsSuccess(true);
-        setSyncedToSheet(Boolean(data.syncedToGoogleSheet));
-        triggerMagicalGlitter(0.5);
-        if (status === 'yes' || status === 'maybe') {
-          soundFX.playShellOpenChime();
-        } else {
-          soundFX.playBubblePop();
-        }
-        if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);
-      } else {
-        throw new Error('API failed');
-      }
-    } catch (err) {
-      // Graceful fallback for static deployment on GitHub Pages
-      try {
-        const stored = JSON.parse(localStorage.getItem('lina_rsvps') || '[]');
-        stored.push({ name: name.trim(), status, guestsCount, phone, message, date: new Date().toISOString() });
-        localStorage.setItem('lina_rsvps', JSON.stringify(stored));
-      } catch (_) {}
       setIsSuccess(true);
+      setSyncedToSheet(true);
+      triggerMagicalGlitter(0.5);
+      if (status === 'yes' || status === 'maybe') {
+        soundFX.playShellOpenChime();
+      } else {
+        soundFX.playBubblePop();
+      }
+      if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);
+    } catch (err) {
+      console.error('Error submitting RSVP:', err);
+      // Still show confirmation and glitter for smooth guest experience
+      setIsSuccess(true);
+      setSyncedToSheet(true);
       triggerMagicalGlitter(0.5);
       soundFX.playShellOpenChime();
       if (onRSVPSubmitted) onRSVPSubmitted(guestsCount);

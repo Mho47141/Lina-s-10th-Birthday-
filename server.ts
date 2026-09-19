@@ -64,54 +64,9 @@ const defaultSettings: AppSettings = {
   googleSheetWebhookUrl: "https://script.google.com/macros/s/AKfycbw2yC1kkf5sJidoBZBo-FYHgW_jaKLO1QmJ7Q-7m3OYmCwhSpFRrsApFr2OZEzDEZzL/exec",
 };
 
-// Initial sample wishes for a joyful experience
-const defaultWishes: WishItem[] = [
-  {
-    id: "wish-1",
-    author: "Grandma Nora",
-    message: "Happy 10th Birthday my sweet mermaid princess! Can't wait to see you shine like a pearl under the sea! 💖🧜‍♀️",
-    avatar: "🧜‍♀️",
-    likes: 5,
-    createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
-  },
-  {
-    id: "wish-2",
-    author: "Auntie Maya & Leo",
-    message: "Dive deep into double digits, Lina! So excited for the underwater adventure! 🌊🐠✨",
-    avatar: "🐠",
-    likes: 4,
-    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-  },
-  {
-    id: "wish-3",
-    author: "Sophie (School Friend)",
-    message: "Yay Lina!! Best birthday ever! I bought you the coolest starfish necklace! See you Saturday! 🌟🪸",
-    avatar: "🌟",
-    likes: 6,
-    createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-  },
-];
-
-const defaultRSVPs: RSVPItem[] = [
-  {
-    id: "rsvp-1",
-    name: "Auntie Maya",
-    status: "yes",
-    guestsCount: 2,
-    phone: "+1 555-0192",
-    message: "Leo and I are super excited!",
-    createdAt: new Date(Date.now() - 3600000 * 12).toISOString(),
-  },
-  {
-    id: "rsvp-2",
-    name: "Sophie & Family",
-    status: "yes",
-    guestsCount: 3,
-    phone: "+1 555-0143",
-    message: "We'll definitely be there!",
-    createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
-  },
-];
+// Empty defaults so deleted records are never resurrected
+const defaultWishes: WishItem[] = [];
+const defaultRSVPs: RSVPItem[] = [];
 
 function readJSON<T>(file: string, fallback: T): T {
   try {
@@ -213,7 +168,7 @@ app.get("/api/rsvps", async (req, res) => {
       clearTimeout(timeoutId);
       if (sheetRes.ok) {
         const sheetData: any = await sheetRes.json();
-        if (Array.isArray(sheetData.rsvps) && sheetData.rsvps.length > 0) {
+        if (Array.isArray(sheetData.rsvps)) {
           const sheetRsvps: RSVPItem[] = sheetData.rsvps.map((r: any) => {
             let st: "yes" | "maybe" | "no" = "yes";
             const s = String(r.status || "").toLowerCase();
@@ -232,14 +187,9 @@ app.get("/api/rsvps", async (req, res) => {
             };
           });
 
-          const combined = [...sheetRsvps];
-          for (const lr of rsvps) {
-            const exists = combined.some((cr) => cr.name === lr.name);
-            if (!exists) {
-              combined.push(lr);
-            }
-          }
-          rsvps = combined;
+          // Google Sheet is the master source: update local cache with exact sheet content
+          rsvps = sheetRsvps;
+          writeJSON(RSVPS_FILE, rsvps);
         }
       }
     } catch (err) {
@@ -321,7 +271,7 @@ app.get("/api/wishes", async (req, res) => {
       clearTimeout(timeoutId);
       if (sheetRes.ok) {
         const sheetData: any = await sheetRes.json();
-        if (Array.isArray(sheetData.wishes) && sheetData.wishes.length > 0) {
+        if (Array.isArray(sheetData.wishes)) {
           const sheetWishes: WishItem[] = sheetData.wishes.map((w: any) => ({
             id: w.id || `sheet-${w.timestamp || Math.random()}`,
             author: w.author || "Guest",
@@ -331,16 +281,8 @@ app.get("/api/wishes", async (req, res) => {
             createdAt: w.timestamp || new Date().toISOString(),
           }));
 
-          const combined = [...sheetWishes];
-          for (const lw of localWishes) {
-            const exists = combined.some(
-              (cw) => cw.author === lw.author && cw.message === lw.message
-            );
-            if (!exists) {
-              combined.push(lw);
-            }
-          }
-          return res.json({ wishes: combined });
+          writeJSON(WISHES_FILE, sheetWishes);
+          return res.json({ wishes: sheetWishes });
         }
       }
     } catch (err) {

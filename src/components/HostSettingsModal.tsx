@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Language, RSVPStats, AppSettings } from '../types';
 import { translations, sampleAppsScriptCode } from '../translations';
-import { GOOGLE_SHEET_WEBHOOK_URL } from '../services/dataService';
+import { GOOGLE_SHEET_WEBHOOK_URL, dataService } from '../services/dataService';
 import {
   X,
   Sheet,
@@ -67,38 +67,25 @@ export const HostSettingsModal: React.FC<HostSettingsModalProps> = ({
         });
       });
 
-    // Fetch RSVP stats
-    fetch('/api/rsvps')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.stats) setStats(data.stats);
-      })
-      .catch(() => {
-        // Fallback: fetch directly from Google Sheet on GitHub Pages
-        fetch(`${GOOGLE_SHEET_WEBHOOK_URL}?action=rsvps`, { redirect: 'follow' })
-          .then((res) => res.json())
-          .then((data) => {
-            if (Array.isArray(data.rsvps)) {
-              let attending = 0;
-              let maybe = 0;
-              let declined = 0;
-              for (const r of data.rsvps) {
-                const s = String(r.status || '').toLowerCase();
-                const count = Number(r.guestsCount) || 1;
-                if (s.includes('اعتذر') || s.includes('no')) declined++;
-                else if (s.includes('ربما') || s.includes('maybe')) maybe += count;
-                else attending += count;
-              }
-              setStats({
-                totalResponses: data.rsvps.length,
-                attendingGuests: attending,
-                maybeGuests: maybe,
-                declinedResponses: declined,
-              });
-            }
-          })
-          .catch((e) => console.warn('Could not load sheet stats:', e));
+    // Fetch RSVP stats directly from Google Sheet source of truth
+    dataService.getRSVPs().then((items) => {
+      let attending = 0;
+      let maybe = 0;
+      let declined = 0;
+      for (const r of items) {
+        const s = String(r.status || '').toLowerCase();
+        const count = Number(r.guestsCount) || 1;
+        if (s.includes('اعتذر') || s === 'no') declined++;
+        else if (s.includes('ربما') || s === 'maybe') maybe += count;
+        else attending += count;
+      }
+      setStats({
+        totalResponses: items.length,
+        attendingGuests: attending,
+        maybeGuests: maybe,
+        declinedResponses: declined,
       });
+    }).catch((e) => console.warn('Could not load stats:', e));
   }, [isOpen]);
 
   if (!isOpen) return null;

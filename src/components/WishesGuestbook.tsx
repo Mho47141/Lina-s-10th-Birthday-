@@ -51,25 +51,28 @@ export const WishesGuestbook: React.FC<WishesGuestbookProps> = ({
   const fetchWishes = async () => {
     try {
       const items = await dataService.getWishes();
-      if (items && items.length > 0) {
+      if (Array.isArray(items)) {
         setWishes(items);
         return;
       }
     } catch (_) {}
 
-    // Fallback to localStorage
+    // Fallback to localStorage only if network failed
     try {
-      const saved = localStorage.getItem('lina_guestbook_wishes');
+      const saved = localStorage.getItem('lina_party_local_wishes');
       if (saved) {
         setWishes(JSON.parse(saved));
         return;
       }
     } catch (_) {}
-    setWishes(INITIAL_LOCAL_WISHES);
+    setWishes([]);
   };
 
   useEffect(() => {
     fetchWishes();
+    // Periodically sync with Google Sheet every 15 seconds to reflect additions/deletions
+    const interval = setInterval(fetchWishes, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

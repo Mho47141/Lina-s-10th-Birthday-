@@ -87,6 +87,59 @@ async function sendToGoogleSheetWebhook(payload: Record<string, any>): Promise<b
 }
 
 export const dataService = {
+  async getRSVPs(): Promise<RSVPItem[]> {
+    try {
+      const res = await fetch(`${GOOGLE_SHEET_WEBHOOK_URL}?action=rsvps`, {
+        redirect: 'follow',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.rsvps)) {
+          const sheetRsvps: RSVPItem[] = data.rsvps.map((r: any) => {
+            let st: 'yes' | 'maybe' | 'no' = 'yes';
+            const s = String(r.status || '').toLowerCase();
+            if (s.includes('اعتذر') || s.includes('no')) st = 'no';
+            else if (s.includes('ربما') || s.includes('maybe')) st = 'maybe';
+            else st = 'yes';
+
+            return {
+              id: r.id || `sheet-${r.timestamp || Math.random()}`,
+              name: r.name || 'Guest',
+              status: st,
+              guestsCount: Number(r.guestsCount) || 1,
+              phone: r.phone || undefined,
+              message: r.message || undefined,
+              createdAt: r.timestamp || new Date().toISOString(),
+            };
+          });
+          // Overwrite local storage cache with exact sheet data
+          localStorage.setItem(LOCAL_RSVPS_KEY, JSON.stringify(sheetRsvps));
+          return sheetRsvps;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch RSVPs from Google Sheet, checking local cache:', e);
+    }
+
+    // Fallback: try local server or cached storage
+    try {
+      const localRes = await fetch('/api/rsvps');
+      if (localRes.ok) {
+        const localData = await localRes.json();
+        if (Array.isArray(localData.rsvps)) {
+          return localData.rsvps;
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const cached = localStorage.getItem(LOCAL_RSVPS_KEY);
+      if (cached) return JSON.parse(cached);
+    } catch (_) {}
+
+    return [];
+  },
+
   async submitRSVP(data: {
     name: string;
     status: 'yes' | 'maybe' | 'no';
@@ -112,10 +165,10 @@ export const dataService = {
       createdAt: timestamp,
     };
 
-    // 1. Immediately store in localStorage
+    // Store in local cache optimistically
     saveLocalRSVP(newRSVP);
 
-    // 2. Prepare Google Sheet payload
+    // Prepare Google Sheet payload
     const sheetPayload = {
       type: 'RSVP',
       timestamp,
@@ -126,10 +179,10 @@ export const dataService = {
       message: data.message || '',
     };
 
-    // 3. Send directly to Google Sheet (works everywhere, including GitHub Pages)
+    // Send directly to Google Sheet Webhook
     const directPromise = sendToGoogleSheetWebhook(sheetPayload);
 
-    // 4. Try local /api/rsvp if backend server is available (e.g. in dev)
+    // Try local /api/rsvp if backend server is available (e.g. in dev)
     try {
       fetch('/api/rsvp', {
         method: 'POST',
@@ -137,7 +190,7 @@ export const dataService = {
         body: JSON.stringify(data),
       }).catch(() => {});
     } catch {
-      // Ignore if /api route does not exist (GitHub Pages)
+      // Ignore in static mode
     }
 
     await directPromise;
@@ -149,10 +202,7 @@ export const dataService = {
   },
 
   async getWishes(): Promise<WishItem[]> {
-    const localSaved = getStoredLocalWishes();
-    let sheetWishes: WishItem[] = [];
-
-    // First try Google Sheet Webhook directly (works on GitHub Pages and everywhere)
+    // 1. Google Sheet is the master single source of truth
     try {
       const res = await fetch(`${GOOGLE_SHEET_WEBHOOK_URL}?action=wishes`, {
         redirect: 'follow',
@@ -160,7 +210,7 @@ export const dataService = {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data.wishes)) {
-          sheetWishes = data.wishes.map((w: any) => ({
+          const sheetWishes: WishItem[] = data.wishes.map((w: any) => ({
             id: w.id || `sheet-${w.timestamp || Math.random()}`,
             author: w.author || 'Guest',
             message: w.message || '',
@@ -168,48 +218,36 @@ export const dataService = {
             likes: 0,
             createdAt: w.timestamp || new Date().toISOString(),
           }));
+
+          // Overwrite local storage cache with exact sheet data (so deletions take effect immediately!)
+          localStorage.setItem(LOCAL_WISHES_KEY, JSON.stringify(sheetWishes));
+          localStorage.removeItem('lina_guestbook_wishes');
+
+          return sheetWishes.sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
         }
       }
     } catch (e) {
-      // If direct Google Sheet fetch fails (e.g. offline), try local API
-      try {
-        const apiRes = await fetch('/api/wishes');
-        if (apiRes.ok) {
-          const apiData = await apiRes.json();
-          if (Array.isArray(apiData.wishes)) {
-            sheetWishes = apiData.wishes;
-          }
+      console.warn('Could not fetch wishes directly from Google Sheet, checking fallback:', e);
+    }
+
+    // 2. Try server API
+    try {
+      const apiRes = await fetch('/api/wishes');
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        if (Array.isArray(apiData.wishes)) {
+          return apiData.wishes;
         }
-      } catch {
-        // static environment
       }
+    } catch {
+      // static environment
     }
 
-    // Combine sheet wishes + local storage wishes + initial sample wishes (deduplicated)
-    const allWishes: WishItem[] = [...localSaved];
-
-    for (const sw of sheetWishes) {
-      const exists = allWishes.some(
-        (w) => (w.author === sw.author && w.message === sw.message) || w.id === sw.id
-      );
-      if (!exists) {
-        allWishes.push(sw);
-      }
-    }
-
-    for (const sample of initialSampleWishes) {
-      const exists = allWishes.some(
-        (w) => w.author === sample.author && w.message === sample.message
-      );
-      if (!exists) {
-        allWishes.push(sample);
-      }
-    }
-
-    // Sort by createdAt descending (newest first)
-    return allWishes.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    // 3. Fallback to cached local storage only if offline
+    const localSaved = getStoredLocalWishes();
+    return localSaved;
   },
 
   async submitWish(data: {
